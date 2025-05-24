@@ -1,0 +1,35 @@
+# 核心依赖
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.0
+
+# 向量数据库
+faiss-cpu>=1.7.0
+
+# 文本处理
+jieba>=0.42.1
+chardet>=5.0.0
+
+# 数据处理
+pandas>=1.5.0
+numpy>=1.21.0
+
+# 进度条
+tqdm>=4.64.0
+
+# 文档处理依赖
+python-docx>=0.8.11
+PyPDF2>=3.0.0
+
+# JSON处理（Python内置，无需安装）
+# pathlib（Python内置，无需安装）
+
+# 可选依赖（用于GPU加速）
+# faiss-gpu>=1.7.0  # 如果需要GPU加速，可以替换faiss-cpu
+
+# 注意：
+# 1. 本项目避免使用llama-index，以防止循环导入问题
+# 2. 使用transformers和sentence-transformers直接实现LLM和嵌入功能
+# 3. 在ModelScope服务器环境中，torch等核心库可能已预装
+# 4. python-docx用于处理Word文档(.docx)
+# 5. PyPDF2用于处理PDF文档 
