@@ -387,6 +387,18 @@ class RAGEngine:
         """初始化向量数据库"""
         print("初始化向量数据库...")
         self.vector_db = VectorDatabase(embedding_model=self.embed_model)
+        
+        # 尝试自动加载现有的向量数据库
+        if self.vector_db.can_load_existing():
+            print("发现现有向量数据库，尝试加载...")
+            if self.vector_db.load_from_disk():
+                print("✅ 向量数据库加载成功")
+                stats = self.vector_db.get_statistics()
+                print(f"向量数据库统计: {stats}")
+            else:
+                print("⚠️ 向量数据库加载失败")
+        else:
+            print("⚠️ 未发现现有向量数据库，需要先构建索引")
     
     def build_index(self, force_rebuild: bool = False):
         """构建或加载向量索引"""
@@ -432,8 +444,14 @@ class RAGEngine:
     
     def retrieve_documents(self, query: str) -> List[str]:
         """检索相关文档"""
+        # 检查向量数据库是否已加载，如果没有则尝试加载
         if not self.vector_db.is_loaded:
-            raise ValueError("向量数据库未加载")
+            print("向量数据库未加载，尝试自动加载...")
+            if self.vector_db.can_load_existing():
+                if not self.vector_db.load_from_disk():
+                    raise ValueError("向量数据库加载失败，请先构建索引")
+            else:
+                raise ValueError("未找到现有向量数据库文件，请先构建索引")
             
         print(f"检索查询: {query}")
         
@@ -552,4 +570,43 @@ class RAGEngine:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         gc.collect()
-        print("资源清理完成") 
+        print("资源清理完成")
+
+    def search_documents(self, query: str, top_k: int = None) -> List[Dict[str, Any]]:
+        """搜索相关文档 - 兼容测试脚本的接口"""
+        # 检查向量数据库是否已加载，如果没有则尝试加载
+        if not self.vector_db.is_loaded:
+            print("向量数据库未加载，尝试自动加载...")
+            if self.vector_db.can_load_existing():
+                if not self.vector_db.load_from_disk():
+                    raise ValueError("向量数据库加载失败，请先构建索引")
+            else:
+                raise ValueError("未找到现有向量数据库文件，请先构建索引")
+            
+        if top_k is None:
+            top_k = self.config.TOP_K
+            
+        print(f"搜索查询: {query}")
+        
+        try:
+            # 使用向量数据库搜索
+            search_results = self.vector_db.search(query, top_k=top_k)
+            
+            # 转换为测试脚本期望的格式
+            formatted_results = []
+            for result in search_results:
+                formatted_result = {
+                    'score': result.get('score', 0.0),
+                    'content': result.get('text', ''),  # 测试脚本期望'content'字段
+                    'text': result.get('text', ''),     # 保留原有字段
+                    'chunk_id': result.get('chunk_id', ''),
+                    'metadata': result.get('metadata', {})
+                }
+                formatted_results.append(formatted_result)
+            
+            print(f"搜索到 {len(formatted_results)} 个相关文档片段")
+            return formatted_results
+            
+        except Exception as e:
+            print(f"搜索文档时发生错误: {e}")
+            return [] 

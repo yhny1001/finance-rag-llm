@@ -1,5 +1,6 @@
 """
-金融监管制度智能问答系统主程序
+金融监管制度智能问答系统主程序 - 优化版
+针对低分问题的改进版本
 """
 
 import os
@@ -12,12 +13,13 @@ from typing import List, Dict, Any
 import pandas as pd
 from tqdm import tqdm
 
-from config import Config
+# 使用优化配置
+from config_optimized import Config
 from rag_engine import RAGEngine
 
 
-class FinancialQASystem:
-    """金融监管制度智能问答系统主类"""
+class FinancialQASystemOptimized:
+    """金融监管制度智能问答系统主类 - 优化版"""
     
     def __init__(self):
         self.config = Config
@@ -26,7 +28,13 @@ class FinancialQASystem:
         
     def initialize(self):
         """初始化系统"""
-        print("初始化金融监管制度智能问答系统...")
+        print("🚀 初始化金融监管制度智能问答系统 - 优化版...")
+        print("📈 本版本针对低分问题进行了以下优化:")
+        print("   - 更精确的文档切片 (600字符)")
+        print("   - 增加检索数量 (TOP-8)")
+        print("   - 改进的提示词模板")
+        print("   - 更智能的选择题答案提取")
+        print("   - 优化的生成参数")
         
         # 验证路径
         if not self.config.validate_paths():
@@ -40,7 +48,7 @@ class FinancialQASystem:
         print("初始化RAG引擎...")
         self.rag_engine = RAGEngine()
         
-        print("系统初始化完成")
+        print("✅ 系统初始化完成")
         return True
     
     def build_knowledge_base(self, force_rebuild: bool = False):
@@ -53,7 +61,7 @@ class FinancialQASystem:
             
         try:
             self.rag_engine.build_index(force_rebuild=force_rebuild)
-            print("知识库构建完成")
+            print("✅ 知识库构建完成")
             return True
         except Exception as e:
             print(f"知识库构建失败: {e}")
@@ -117,15 +125,15 @@ class FinancialQASystem:
             return []
     
     def process_question(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
-        """处理单个问题"""
+        """处理单个问题 - 优化版"""
         question_id = question_data.get('id', 'unknown')
         category = question_data.get('category', '问答题')
         question = question_data.get('question', '')
         content = question_data.get('content', '')
         
-        print(f"\n处理问题 ID: {question_id}")
-        print(f"类别: {category}")
-        print(f"问题: {question}")
+        print(f"\n🔍 处理问题 ID: {question_id}")
+        print(f"📋 类别: {category}")
+        print(f"❓ 问题: {question[:100]}...")
         
         # 构建完整问题（对于选择题，包含选项）
         if category == "选择题" and content:
@@ -152,11 +160,16 @@ class FinancialQASystem:
             # 如果有错误，记录错误信息
             if "error" in result:
                 processed_result["error"] = result["error"]
+            
+            # 显示处理结果预览
+            answer_preview = processed_result["answer"][:150] + "..." if len(processed_result["answer"]) > 150 else processed_result["answer"]
+            print(f"✅ 生成答案: {answer_preview}")
+            print(f"📊 使用了 {processed_result['num_sources']} 个检索源")
                 
             return processed_result
             
         except Exception as e:
-            print(f"处理问题时发生错误: {e}")
+            print(f"❌ 处理问题时发生错误: {e}")
             return {
                 "id": question_id,
                 "category": category,
@@ -172,7 +185,7 @@ class FinancialQASystem:
         if end_idx is None:
             end_idx = len(questions)
             
-        print(f"开始批量处理问题 {start_idx} 到 {end_idx}")
+        print(f"📦 开始批量处理问题 {start_idx} 到 {end_idx}")
         
         batch_results = []
         for i in tqdm(range(start_idx, min(end_idx, len(questions))), desc="处理问题"):
@@ -181,7 +194,7 @@ class FinancialQASystem:
             batch_results.append(result)
             
             # 定期清理GPU缓存
-            if (i + 1) % 5 == 0:
+            if (i + 1) % 3 == 0:  # 减少到每3个清理一次
                 self.rag_engine.cleanup()
                 
         return batch_results
@@ -190,7 +203,7 @@ class FinancialQASystem:
         """保存结果"""
         if output_file is None:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            output_file = f"{self.config.OUTPUT_DIR}/results_{timestamp}.json"
+            output_file = f"{self.config.OUTPUT_DIR}/results_optimized_{timestamp}.json"
             
         output_path = Path(output_file)
         output_path.parent.mkdir(exist_ok=True)
@@ -200,7 +213,7 @@ class FinancialQASystem:
             with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(results, f, ensure_ascii=False, indent=2)
                 
-            print(f"完整结果已保存到: {output_file}")
+            print(f"💾 完整结果已保存到: {output_file}")
             
             # 只有在指定时才生成比赛要求的result.json文件
             if generate_competition_format:
@@ -210,11 +223,11 @@ class FinancialQASystem:
             csv_file = output_path.with_suffix('.csv')
             df = pd.DataFrame(results)
             df.to_csv(csv_file, index=False, encoding='utf-8-sig')
-            print(f"结果CSV文件已保存到: {csv_file}")
+            print(f"📊 结果CSV文件已保存到: {csv_file}")
             
         except Exception as e:
-            print(f"保存结果失败: {e}")
-    
+            print(f"❌ 保存结果失败: {e}")
+
     def save_competition_format(self, results: List[Dict[str, Any]]):
         """保存符合比赛要求的result.json文件"""
         print("\n🎯 生成比赛提交格式文件...")
@@ -254,7 +267,7 @@ class FinancialQASystem:
             
         except Exception as e:
             print(f"❌ 生成比赛格式文件失败: {e}")
-    
+
     def extract_choice_answer(self, answer_text: str) -> List[str]:
         """从回答中提取选择题答案 - 改进版"""
         import re
@@ -354,7 +367,7 @@ class FinancialQASystem:
         print(f"⚠️ 无法从答案中提取选项，使用默认答案A")
         print(f"原文: {answer_text[:200]}...")
         return ["A"]  # 默认选择A
-    
+
     def validate_result_file(self, result_file: str):
         """验证结果文件格式"""
         print("🔍 验证结果文件格式...")
@@ -402,17 +415,17 @@ class FinancialQASystem:
                         
         except Exception as e:
             print(f"❌ 验证文件时出错: {e}")
-    
+
     def run_test(self, force_rebuild: bool = False, batch_size: int = None, start_idx: int = 0, end_idx: int = None):
-        """运行完整测试"""
-        print("开始运行金融监管制度智能问答测试")
+        """运行完整测试 - 优化版"""
+        print("🚀 开始运行金融监管制度智能问答测试 - 优化版")
         
         # 清理旧的中间文件
         self.cleanup_intermediate_files()
         
         # 生成本次运行的唯一标识
         run_timestamp = time.strftime("%Y%m%d_%H%M%S")
-        print(f"🏷️ 本次运行标识: {run_timestamp}")
+        print(f"🏷️ 本次运行标识: optimized_{run_timestamp}")
         
         # 初始化系统
         if not self.initialize():
@@ -428,35 +441,36 @@ class FinancialQASystem:
             print("没有可用的测试数据")
             return False
             
-        # 设置批处理大小
+        # 设置批处理大小（使用优化配置）
         if batch_size is None:
-            batch_size = self.config.BATCH_SIZE
+            batch_size = self.config.BATCH_SIZE  # 默认5
             
         # 设置处理范围
         if end_idx is None or end_idx > len(questions):
             end_idx = len(questions)
             
-        print(f"将处理 {end_idx - start_idx} 个问题 (索引 {start_idx} 到 {end_idx - 1})")
+        print(f"📊 将处理 {end_idx - start_idx} 个问题 (索引 {start_idx} 到 {end_idx - 1})")
+        print(f"🔧 使用优化参数: 批次大小={batch_size}, TOP-K={self.config.TOP_K}, 切片大小={self.config.CHUNK_SIZE}")
         
         # 分批处理
         all_results = []
         for batch_start in range(start_idx, end_idx, batch_size):
             batch_end = min(batch_start + batch_size, end_idx)
             
-            print(f"\n处理批次 {batch_start}-{batch_end-1}")
+            print(f"\n📦 处理批次 {batch_start}-{batch_end-1}")
             batch_results = self.process_batch(questions, batch_start, batch_end)
             all_results.extend(batch_results)
             
             # 保存中间结果（不生成比赛格式文件）
-            intermediate_file = f"{self.config.OUTPUT_DIR}/batch_results_{batch_start}_{batch_end-1}_{run_timestamp}.json"
+            intermediate_file = f"{self.config.OUTPUT_DIR}/batch_results_optimized_{batch_start}_{batch_end-1}_{run_timestamp}.json"
             self.save_results(batch_results, intermediate_file, generate_competition_format=False)
             
-            print(f"批次 {batch_start}-{batch_end-1} 处理完成")
+            print(f"✅ 批次 {batch_start}-{batch_end-1} 处理完成")
             
         # 保存最终结果（生成比赛格式文件）
         print(f"\n🏁 所有批次处理完成，生成最终结果...")
-        final_result_file = f"{self.config.OUTPUT_DIR}/final_results_{run_timestamp}.json"
-        competition_result_file = f"result_{run_timestamp}.json"
+        final_result_file = f"{self.config.OUTPUT_DIR}/final_results_optimized_{run_timestamp}.json"
+        competition_result_file = f"result_optimized_{run_timestamp}.json"
         
         # 保存完整结果
         self.save_results(all_results, final_result_file, generate_competition_format=False)
@@ -470,10 +484,10 @@ class FinancialQASystem:
         # 打印统计信息
         self.print_statistics(all_results)
         
-        print(f"\n🎯 比赛文件已生成:")
+        print(f"\n🎯 优化版比赛文件已生成:")
         print(f"   - {competition_result_file} (带时间戳)")
         print(f"   - result.json (默认文件)")
-        print("测试完成！")
+        print("🎉 优化版测试完成！期待更高的分数！")
         return True
     
     def cleanup_intermediate_files(self):
@@ -485,7 +499,7 @@ class FinancialQASystem:
             return
             
         # 清理批次结果文件
-        batch_files = list(output_dir.glob("batch_results_*.json"))
+        batch_files = list(output_dir.glob("batch_results*.json"))
         for file in batch_files:
             try:
                 file.unlink()
@@ -538,9 +552,9 @@ class FinancialQASystem:
     
     def print_statistics(self, results: List[Dict[str, Any]]):
         """打印统计信息"""
-        print("\n" + "="*50)
-        print("测试统计信息")
-        print("="*50)
+        print("\n" + "="*60)
+        print("📊 优化版测试统计信息")
+        print("="*60)
         
         total_questions = len(results)
         choice_questions = sum(1 for r in results if r.get('category') == '选择题')
@@ -557,104 +571,40 @@ class FinancialQASystem:
         avg_sources = sum(r.get('num_sources', 0) for r in results if 'error' not in r) / max(1, total_questions - error_count)
         print(f"平均检索源数量: {avg_sources:.2f}")
         
+        print(f"\n🎯 优化参数使用情况:")
+        print(f"   文档切片大小: {self.config.CHUNK_SIZE}")
+        print(f"   检索TOP-K: {self.config.TOP_K}")
+        print(f"   批次大小: {self.config.BATCH_SIZE}")
+        print(f"   最大生成长度: {self.config.MAX_TOKENS}")
+        
         # 显示向量数据库统计
         if self.rag_engine:
             vector_stats = self.rag_engine.get_vector_db_stats()
-            print(f"\n向量数据库统计:")
+            print(f"\n🔍 向量数据库统计:")
             for key, value in vector_stats.items():
                 print(f"  {key}: {value}")
-    
-    def show_vector_db_info(self):
-        """显示向量数据库信息"""
-        if not self.rag_engine:
-            print("RAG引擎未初始化")
-            return
-            
-        stats = self.rag_engine.get_vector_db_stats()
-        print("\n" + "="*50)
-        print("向量数据库详细信息")
-        print("="*50)
-        
-        for key, value in stats.items():
-            print(f"{key}: {value}")
-    
-    def rebuild_vector_database(self):
-        """重建向量数据库"""
-        print("开始重建向量数据库...")
-        
-        if not self.initialize():
-            return False
-            
-        try:
-            self.rag_engine.rebuild_vector_db()
-            print("向量数据库重建完成")
-            self.show_vector_db_info()
-            return True
-        except Exception as e:
-            print(f"重建向量数据库失败: {e}")
-            return False
 
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description="金融监管制度智能问答系统")
+    parser = argparse.ArgumentParser(description="金融监管制度智能问答系统 - 优化版")
     parser.add_argument("--force-rebuild", action="store_true", help="强制重建索引")
-    parser.add_argument("--batch-size", type=int, default=10, help="批处理大小")
+    parser.add_argument("--batch-size", type=int, default=5, help="批处理大小(优化版默认5)")
     parser.add_argument("--start-idx", type=int, default=0, help="开始索引")
     parser.add_argument("--end-idx", type=int, help="结束索引")
-    parser.add_argument("--interactive", action="store_true", help="交互式问答模式")
-    parser.add_argument("--vector-info", action="store_true", help="显示向量数据库信息")
-    parser.add_argument("--rebuild-vector", action="store_true", help="重建向量数据库")
     
     args = parser.parse_args()
     
-    # 创建系统实例
-    qa_system = FinancialQASystem()
+    # 创建优化版系统实例
+    qa_system = FinancialQASystemOptimized()
     
-    if args.vector_info:
-        # 显示向量数据库信息
-        qa_system.initialize()
-        qa_system.show_vector_db_info()
-        return
-        
-    if args.rebuild_vector:
-        # 重建向量数据库
-        qa_system.rebuild_vector_database()
-        return
-    
-    if args.interactive:
-        # 交互式模式
-        print("进入交互式问答模式")
-        if not qa_system.initialize():
-            return
-            
-        if not qa_system.build_knowledge_base(force_rebuild=args.force_rebuild):
-            return
-            
-        print("系统准备就绪，输入 'quit' 退出，'info' 查看向量数据库信息")
-        
-        while True:
-            user_input = input("\n请输入问题: ").strip()
-            if user_input.lower() == 'quit':
-                break
-            elif user_input.lower() == 'info':
-                qa_system.show_vector_db_info()
-                continue
-                
-            if not user_input:
-                continue
-                
-            result = qa_system.rag_engine.answer_question(user_input, "问答题")
-            print(f"\n答案: {result.get('answer', '无法生成答案')}")
-            
-    else:
-        # 批量测试模式
-        qa_system.run_test(
-            force_rebuild=args.force_rebuild,
-            batch_size=args.batch_size,
-            start_idx=args.start_idx,
-            end_idx=args.end_idx
-        )
+    # 运行优化版测试
+    qa_system.run_test(
+        force_rebuild=args.force_rebuild,
+        batch_size=args.batch_size,
+        start_idx=args.start_idx,
+        end_idx=args.end_idx
+    )
 
 
 if __name__ == "__main__":

@@ -1,67 +1,55 @@
 """
-修复后的改进版配置文件
-保留所有必要配置项，修正模型路径，优化参数设置
+改进版配置文件
+针对系统分数低的问题，优化各项参数设置
 """
 
 import os
 from pathlib import Path
 
-class Config:
+class ImprovedConfig:
     """改进版配置类"""
     
     # 基础路径配置
     BASE_DIR = Path(__file__).parent
+    DOCUMENTS_DIR = BASE_DIR / "documents"
+    VECTOR_DB_DIR = BASE_DIR / "vector_db"
+    TEST_DATA_PATH = BASE_DIR / "金融监管制度问答-测试集.jsonl"
     
-    # 模型配置 - 修正为服务器路径
-    LLM_MODEL_PATH = "/mnt/workspace/.cache/modelscope/models/Qwen/Qwen2.5-7B-Instruct"
-    EMBEDDING_MODEL_PATH = "/mnt/workspace/.cache/modelscope/models/Jerry0/m3e-base"
-    
-    # 数据路径配置
-    DOCUMENTS_DIR = "赛题制度文档"
-    TEST_DATA_PATH = "数据集A/testA.json"
-    OUTPUT_DIR = "output"
-    INDEX_DIR = "index"
-    
-    # 向量数据库配置 - 保留所有必要文件配置
-    VECTOR_DB_DIR = "vector_db"
-    FAISS_INDEX_FILE = "faiss_index.bin"
-    VECTOR_METADATA_FILE = "vector_metadata.json"
-    DOCUMENT_STORE_FILE = "document_store.json"
-    
-    # RAG参数配置 - 优化后的参数
+    # 文档处理配置 - 关键优化点
     CHUNK_SIZE = 1000              # 增大切片大小，减少信息分割
     CHUNK_OVERLAP = 200            # 增大重叠，确保连续性
+    
+    # 向量检索配置 - 核心改进
     TOP_K = 10                     # 增加检索数量，获取更多上下文
     SIMILARITY_THRESHOLD = 0.25    # 降低阈值，包含更多相关内容
     
-    # 向量数据库参数
-    VECTOR_DIMENSION = 768  # m3e-base向量维度
-    FAISS_INDEX_TYPE = "IndexFlatIP"  # FAISS索引类型 (内积)
-    VECTOR_NORMALIZE = True  # 是否标准化向量
-    BATCH_ENCODE_SIZE = 8   # 减小批次大小，提高稳定性
+    # Embedding模型配置
+    EMBEDDING_MODEL = "BAAI/bge-large-zh-v1.5"
+    EMBEDDING_DEVICE = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
+    EMBEDDING_BATCH_SIZE = 8       # 减小批次大小，提高稳定性
     
-    # 模型生成参数 - 优化设置
-    MAX_TOKENS = 2048              # 增加最大token数
+    # LLM模型配置
+    LLM_MODEL_PATH = r"D:\model\Qwen2.5-7B-Instruct"
+    LLM_DEVICE = "cuda" if os.environ.get("CUDA_VISIBLE_DEVICES") else "cpu"
+    
+    # 生成参数配置 - 重要优化
+    MAX_TOKENS = 2048              # 增加最大token数，允许更详细回答
     TEMPERATURE = 0.1              # 降低随机性，提高准确性
-    DO_SAMPLE = True
     TOP_P = 0.8                    # 适度的多样性
     REPETITION_PENALTY = 1.1       # 避免重复
     
-    # 系统提示词 - 保持原有
-    SYSTEM_PROMPT = """你是一个专业的金融监管制度问答助手。请根据提供的文档内容回答问题，确保答案准确、合规。
-对于选择题，请分析各个选项，给出正确答案。
-对于问答题，请提供详细、准确的回答。
-请基于文档内容回答，不要编造信息。"""
-
-    # 选择题提示词模板 - 改进版
-    CHOICE_PROMPT_TEMPLATE = """你是一名专业的金融监管法规专家，请根据提供的参考资料，准确回答选择题。
+    # 批处理配置
+    BATCH_SIZE = 3                 # 减小批次，提高成功率
+    MAX_WORKERS = 2                # 减少并发，提高稳定性
+    
+    # 提示词模板 - 大幅改进
+    CHOICE_QUESTION_PROMPT = """你是一名专业的金融监管法规专家，请根据提供的参考资料，准确回答选择题。
 
 参考资料：
 {context}
 
 问题：{question}
-选项：
-{options}
+选项：{options}
 
 请仔细分析参考资料，结合金融监管知识，选择最准确的答案。
 
@@ -75,8 +63,7 @@ class Config:
 
 答案："""
 
-    # 问答题提示词模板 - 改进版
-    QA_PROMPT_TEMPLATE = """你是一名专业的金融监管法规专家，请根据提供的参考资料，详细回答问题。
+    QA_QUESTION_PROMPT = """你是一名专业的金融监管法规专家，请根据提供的参考资料，详细回答问题。
 
 参考资料：
 {context}
@@ -92,18 +79,17 @@ class Config:
 
 答案："""
 
+    # 错误处理配置
+    MAX_RETRIES = 3                # 最大重试次数
+    RETRY_DELAY = 2                # 重试间隔（秒）
+    
     # 日志配置
     LOG_LEVEL = "INFO"
-    LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_FILE = "improved_system.log"
     
-    # 批处理配置 - 优化后的设置
-    BATCH_SIZE = 3                 # 减小批次，提高成功率
-    MAX_RETRIES = 3                # 最大重试次数
-    MAX_WORKERS = 2                # 减少并发，提高稳定性
-    
-    # GPU配置
-    USE_GPU = True
-    GPU_MEMORY_FRACTION = 0.8  # GPU显存使用比例
+    # 缓存配置
+    ENABLE_CACHE = True
+    CACHE_DIR = BASE_DIR / "cache"
     
     # 新增：质量控制配置
     MIN_ANSWER_LENGTH = 50         # 最小答案长度
@@ -137,30 +123,6 @@ class Config:
     CONTENT_FILTER_MIN_LENGTH = 20 # 内容过滤最小长度
     
     @classmethod
-    def create_dirs(cls):
-        """创建必要的目录"""
-        dirs = [cls.OUTPUT_DIR, cls.INDEX_DIR, cls.VECTOR_DB_DIR]
-        for dir_path in dirs:
-            Path(dir_path).mkdir(exist_ok=True)
-            print(f"创建目录: {dir_path}")
-    
-    @classmethod
-    def validate_paths(cls):
-        """验证路径是否存在"""
-        paths_to_check = [
-            cls.LLM_MODEL_PATH,
-            cls.EMBEDDING_MODEL_PATH,
-            cls.DOCUMENTS_DIR,
-            cls.TEST_DATA_PATH
-        ]
-        
-        for path in paths_to_check:
-            if not Path(path).exists():
-                print(f"警告: 路径不存在 - {path}")
-                return False
-        return True
-    
-    @classmethod
     def get_improved_generation_config(cls):
         """获取改进的生成配置"""
         return {
@@ -168,7 +130,7 @@ class Config:
             "temperature": cls.TEMPERATURE,
             "top_p": cls.TOP_P,
             "repetition_penalty": cls.REPETITION_PENALTY,
-            "do_sample": cls.DO_SAMPLE,
+            "do_sample": True,
             "pad_token_id": 151643,  # Qwen2的pad_token_id
             "eos_token_id": 151645,  # Qwen2的eos_token_id
         }
@@ -201,10 +163,10 @@ class Config:
         issues = []
         
         # 检查必要的路径
-        if not Path(cls.DOCUMENTS_DIR).exists():
+        if not cls.DOCUMENTS_DIR.exists():
             issues.append(f"文档目录不存在: {cls.DOCUMENTS_DIR}")
         
-        if not Path(cls.TEST_DATA_PATH).exists():
+        if not cls.TEST_DATA_PATH.exists():
             issues.append(f"测试数据文件不存在: {cls.TEST_DATA_PATH}")
         
         # 检查参数合理性
@@ -220,4 +182,7 @@ class Config:
         if cls.MAX_TOKENS < 500:
             issues.append("MAX_TOKENS过小，可能导致回答不完整")
         
-        return issues 
+        return issues
+
+# 使用示例
+Config = ImprovedConfig 
