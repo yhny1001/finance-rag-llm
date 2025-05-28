@@ -1,0 +1,8 @@
+2025-05-28 09:46:00,684 - gpu_fix - INFO - 配置加载成功
+2025-05-28 09:46:00,691 - gpu_fix - INFO - 已将GPU内存使用比例从0.5降低到0.5
+2025-05-28 09:46:19,412 - faiss.loader - INFO - Loading faiss.
+2025-05-28 09:46:19,504 - faiss.loader - INFO - Successfully loaded faiss.
+2025-05-28 09:46:19,518 - faiss - INFO - Failed to load GPU Faiss: name 'GpuIndexIVFFlat' is not defined. Will not load constructor refs for GPU indexes. This is only an error if you're trying to use GPU Faiss.
+2025-05-28 09:46:19,525 - gpu_fix - INFO - RAG引擎导入成功
+2025-05-28 09:46:19,530 - gpu_fix - INFO - 开始诊断GPU使用问题...
+2025-05-28 09:46:19,531 - gpu_fix - ERROR - 未检测到可用的CUDA设备，无法使用GPU

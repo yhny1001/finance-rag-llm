@@ -13,15 +13,16 @@ sys.path.append(".")
 from main import FinancialQASystem
 
 def test_choice_answer_extraction():
-    """测试选择题答案提取功能"""
+    """测试选择题答案提取功能 - 包含不定项选择题"""
     print("=" * 60)
-    print("测试选择题答案提取功能")
+    print("测试选择题答案提取功能 - 含不定项选择题")
     print("=" * 60)
     
     qa_system = FinancialQASystem()
     
     # 测试用例
     test_cases = [
+        # 单选测试用例
         ("答案是A", ["A"]),
         ("正确答案为B", ["B"]),
         ("应该选择C", ["C"]),
@@ -31,6 +32,24 @@ def test_choice_answer_extraction():
         ("选择题答案：C", ["C"]),
         ("D. 这是正确答案", ["D"]),
         ("我认为答案应该是A，因为...", ["A"]),
+        
+        # 多选测试用例 - 标准格式
+        ("答案是A,B", ["A", "B"]),
+        ("正确答案为A、B、C", ["A", "B", "C"]),
+        ("应该选择A，C", ["A", "C"]),
+        
+        # 多选测试用例 - 特殊格式
+        ("选项A和D是正确的", ["A", "D"]),  # 添加连接词"和"的情况
+        ("A,B,C都是正确选项", ["A", "B", "C"]),  # 添加"都是"的情况
+        ("A、C、D正确", ["A", "C", "D"]),
+        ("答案为：A,B", ["A", "B"]),
+        
+        # 额外边界情况测试
+        ("选项B与C是正确答案", ["B", "C"]),  # 测试连接词"与"
+        ("既有A也有B是对的", ["A", "B"]),  # 测试其他表述方式
+        ("本题答案包括A以及C", ["A", "C"]),  # 测试连接词"以及"
+        
+        # 边界情况
         ("没有明确选项的答案", ["A"]),  # 默认情况
     ]
     
@@ -38,6 +57,11 @@ def test_choice_answer_extraction():
     for i, (answer_text, expected) in enumerate(test_cases, 1):
         result = qa_system.extract_choice_answer(answer_text)
         
+        # 对于多选题，排序后再比较
+        if len(expected) > 1:
+            expected = sorted(expected)
+            result = sorted(result)
+            
         print(f"测试 {i}:")
         print(f"  输入: {answer_text}")
         print(f"  期望: {expected}")
