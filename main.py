@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from config import Config
 from rag_engine import RAGEngine
+from resume_processor import ResumeProcessor  # 导入断点续传处理器
 
 
 class FinancialQASystem:
@@ -403,9 +404,12 @@ class FinancialQASystem:
         except Exception as e:
             print(f"❌ 验证文件时出错: {e}")
     
-    def run_test(self, force_rebuild: bool = False, batch_size: int = None, start_idx: int = 0, end_idx: int = None):
+    def run_test(self, force_rebuild: bool = False, batch_size: int = None, start_idx: int = 0, end_idx: int = None, no_resume: bool = False):
         """运行完整测试"""
         print("开始运行金融监管制度智能问答测试")
+        
+        # 初始化断点续传处理器
+        resume_processor = ResumeProcessor()
         
         # 清理旧的中间文件
         self.cleanup_intermediate_files()
@@ -431,7 +435,46 @@ class FinancialQASystem:
         # 设置批处理大小
         if batch_size is None:
             batch_size = self.config.BATCH_SIZE
+        
+        # 检查是否有上次的断点
+        checkpoint_start_idx = None
+        checkpoint_batch_size = None
+        checkpoint_results = None
+        
+        if not no_resume and resume_processor.has_checkpoint():
+            # 询问用户是否继续上次的处理
+            print("\n🔄 检测到上次处理的断点")
+            choice = input("是否继续上次的处理? (y/n，默认y): ").strip().lower()
             
+            if choice != 'n':
+                checkpoint_start_idx, checkpoint_batch_size, checkpoint_results = resume_processor.load_checkpoint()
+                
+                if checkpoint_start_idx is not None:
+                    start_idx = checkpoint_start_idx
+                    print(f"🔄 将从索引 {start_idx} 继续处理")
+                    
+                    if checkpoint_batch_size is not None:
+                        batch_size = checkpoint_batch_size
+                        print(f"🔄 使用上次的批处理大小: {batch_size}")
+                    
+                    if checkpoint_results:
+                        print(f"🔄 已加载上次的处理结果: {len(checkpoint_results)} 个问题")
+                        all_results = checkpoint_results
+                    else:
+                        all_results = []
+                else:
+                    all_results = []
+            else:
+                # 用户选择从头开始，清除检查点
+                resume_processor.clear_checkpoint()
+                all_results = []
+        else:
+            # 强制从头开始，或者没有检查点
+            if no_resume and resume_processor.has_checkpoint():
+                print("🧹 根据参数设置，忽略断点，从头开始处理")
+                resume_processor.clear_checkpoint()
+            all_results = []
+        
         # 设置处理范围
         if end_idx is None or end_idx > len(questions):
             end_idx = len(questions)
@@ -439,20 +482,34 @@ class FinancialQASystem:
         print(f"将处理 {end_idx - start_idx} 个问题 (索引 {start_idx} 到 {end_idx - 1})")
         
         # 分批处理
-        all_results = []
-        for batch_start in range(start_idx, end_idx, batch_size):
-            batch_end = min(batch_start + batch_size, end_idx)
-            
-            print(f"\n处理批次 {batch_start}-{batch_end-1}")
-            batch_results = self.process_batch(questions, batch_start, batch_end)
-            all_results.extend(batch_results)
-            
-            # 保存中间结果（不生成比赛格式文件）
-            intermediate_file = f"{self.config.OUTPUT_DIR}/batch_results_{batch_start}_{batch_end-1}_{run_timestamp}.json"
-            self.save_results(batch_results, intermediate_file, generate_competition_format=False)
-            
-            print(f"批次 {batch_start}-{batch_end-1} 处理完成")
-            
+        try:
+            for batch_start in range(start_idx, end_idx, batch_size):
+                batch_end = min(batch_start + batch_size, end_idx)
+                
+                print(f"\n处理批次 {batch_start}-{batch_end-1}")
+                batch_results = self.process_batch(questions, batch_start, batch_end)
+                all_results.extend(batch_results)
+                
+                # 保存中间结果（不生成比赛格式文件）
+                intermediate_file = f"{self.config.OUTPUT_DIR}/batch_results_{batch_start}_{batch_end-1}_{run_timestamp}.json"
+                self.save_results(batch_results, intermediate_file, generate_competition_format=False)
+                
+                # 保存断点续传检查点
+                resume_processor.save_checkpoint(batch_end, end_idx, batch_size, all_results)
+                
+                print(f"批次 {batch_start}-{batch_end-1} 处理完成")
+                
+        except KeyboardInterrupt:
+            print("\n⚠️ 用户中断处理")
+            print(f"💾 已处理结果将保存在断点续传检查点中")
+            resume_processor.save_checkpoint(batch_start, end_idx, batch_size, all_results)
+            return False
+        except Exception as e:
+            print(f"\n❌ 处理过程中出错: {e}")
+            print(f"💾 已处理结果将保存在断点续传检查点中")
+            resume_processor.save_checkpoint(batch_start, end_idx, batch_size, all_results)
+            return False
+        
         # 保存最终结果（生成比赛格式文件）
         print(f"\n🏁 所有批次处理完成，生成最终结果...")
         final_result_file = f"{self.config.OUTPUT_DIR}/final_results_{run_timestamp}.json"
@@ -474,6 +531,10 @@ class FinancialQASystem:
         print(f"   - {competition_result_file} (带时间戳)")
         print(f"   - result.json (默认文件)")
         print("测试完成！")
+        
+        # 清除检查点（成功完成后）
+        resume_processor.clear_checkpoint()
+        
         return True
     
     def cleanup_intermediate_files(self):
@@ -605,11 +666,49 @@ def main():
     parser.add_argument("--interactive", action="store_true", help="交互式问答模式")
     parser.add_argument("--vector-info", action="store_true", help="显示向量数据库信息")
     parser.add_argument("--rebuild-vector", action="store_true", help="重建向量数据库")
+    # 断点续传相关参数
+    parser.add_argument("--no-resume", action="store_true", help="不使用断点续传，从头开始处理")
+    parser.add_argument("--checkpoint-info", action="store_true", help="显示当前检查点信息")
+    parser.add_argument("--checkpoint-clear", action="store_true", help="清除当前检查点")
     
     args = parser.parse_args()
     
     # 创建系统实例
     qa_system = FinancialQASystem()
+    
+    # 处理断点续传相关命令
+    if args.checkpoint_info or args.checkpoint_clear:
+        from resume_processor import ResumeProcessor
+        resume = ResumeProcessor()
+        
+        if args.checkpoint_info:
+            # 显示检查点信息
+            if resume.has_checkpoint():
+                with open(resume.checkpoint_file, 'r', encoding='utf-8') as f:
+                    checkpoint_data = json.load(f)
+                
+                print("\n" + "="*50)
+                print("📊 检查点信息")
+                print("="*50)
+                
+                print(f"🕒 保存时间: {checkpoint_data.get('time_str', '未知')}")
+                print(f"📈 进度: {checkpoint_data.get('current_idx', 0)}/{checkpoint_data.get('total', 0)} "
+                      f"({checkpoint_data.get('completed_percentage', 0)}%)")
+                print(f"📦 批处理大小: {checkpoint_data.get('batch_size', 0)}")
+            else:
+                print("📝 没有检查点信息")
+        
+        if args.checkpoint_clear:
+            # 清除检查点
+            if resume.has_checkpoint():
+                if resume.clear_checkpoint():
+                    print("✅ 检查点已清除")
+            else:
+                print("📝 没有检查点需要清除")
+        
+        # 如果只是查看或清除检查点，不执行其他操作
+        if not any([args.vector_info, args.rebuild_vector, args.interactive]):
+            return
     
     if args.vector_info:
         # 显示向量数据库信息
@@ -653,7 +752,8 @@ def main():
             force_rebuild=args.force_rebuild,
             batch_size=args.batch_size,
             start_idx=args.start_idx,
-            end_idx=args.end_idx
+            end_idx=args.end_idx,
+            no_resume=args.no_resume
         )
 
 

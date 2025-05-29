@@ -136,13 +136,64 @@ def clear_old_database():
         print(f"⚠️ 清理过程中出现错误: {e}")
         return False
 
+def check_checkpoint():
+    """检查是否有未完成的断点续传"""
+    try:
+        # 尝试导入断点续传处理器
+        sys.path.append('.')  # 确保可以导入当前目录的模块
+        from resume_processor import ResumeProcessor
+        
+        resume = ResumeProcessor()
+        if resume.has_checkpoint():
+            print("\n" + "="*60)
+            print("🔄 检测到未完成的处理进度")
+            
+            # 读取检查点信息
+            with open(resume.checkpoint_file, 'r', encoding='utf-8') as f:
+                import json
+                checkpoint_data = json.load(f)
+            
+            print(f"🕒 保存时间: {checkpoint_data.get('time_str', '未知')}")
+            print(f"📈 进度: {checkpoint_data.get('current_idx', 0)}/{checkpoint_data.get('total', 0)} "
+                  f"({checkpoint_data.get('completed_percentage', 0)}%)")
+            print("="*60)
+            
+            choice = input("\n选择操作:\n1. 继续上次的处理 (推荐)\n2. 清除断点，从头开始\n请选择 (1/2，默认1): ").strip()
+            
+            if choice == '2':
+                print("🧹 清除断点，将从头开始处理")
+                resume.clear_checkpoint()
+                return "clear"
+            else:
+                print("🔄 将继续上次的处理")
+                return "resume"
+        else:
+            return "none"
+    except Exception as e:
+        print(f"⚠️ 检查断点时出错: {e}")
+        return "error"
+
 def start_system():
     """启动RAG系统"""
     print("\n🚀 启动RAG系统...")
     
     try:
+        # 检查断点状态
+        checkpoint_status = check_checkpoint()
+        
+        # 准备命令行参数
+        cmd = [sys.executable, 'main.py']
+        
+        # 如果选择清除断点或没有断点，添加参数
+        if checkpoint_status in ["clear", "none", "error"]:
+            # 不传递特殊参数，系统会从头开始
+            pass
+        elif checkpoint_status == "resume":
+            # 不需要额外参数，系统会自动检测断点
+            pass
+        
         # 运行主程序
-        subprocess.run([sys.executable, 'main.py'], check=True)
+        subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(f"❌ 系统启动失败: {e}")
         return False
